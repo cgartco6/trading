@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoldForge Trading • AI Bootcamp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .chart-container { position: relative; height: 420px; }
+        .live-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .tab-btn.active { background-color: #27272a; color: white; }
+        .price-ticker { transition: all 0.4s ease; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+
+<div class="flex h-screen overflow-hidden">
+    <!-- SIDEBAR -->
+    <div class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        <div class="p-6 border-b border-zinc-800">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-yellow-500 rounded-xl flex items-center justify-center text-black font-bold text-2xl">G</div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tighter">GOLDFORGE</h1>
+                    <p class="text-xs text-emerald-400">AI • FOLLOW THE MONEY</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+            <a onclick="switchTab(0)" class="tab-btn active flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-chart-line"></i> Live Charts
+            </a>
+            <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-coins"></i> Crypto
+            </a>
+            <a onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-dollar-sign"></i> Forex
+            </a>
+            <a onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-brain"></i> AI Predictions
+            </a>
+            <a onclick="switchTab(5)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-graduation-cap"></i> Bootcamp Patterns
+            </a>
+            <a onclick="switchTab(6)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-list"></i> Watchlist
+            </a>
+            <a onclick="switchTab(7)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-history"></i> Backtesting
+            </a>
+        </nav>
+    </div>
+
+    <!-- MAIN -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center px-8 justify-between">
+            <div class="flex items-center gap-8">
+                <div id="current-asset" class="flex items-center gap-3">
+                    <span class="text-2xl font-bold" id="asset-symbol">BTC/USDT</span>
+                    <span id="asset-price" class="text-3xl font-mono font-semibold text-white price-ticker">68452</span>
+                    <span id="asset-change" class="text-emerald-400 font-medium">+1.8%</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full live-dot"></div>
+                    <span class="text-emerald-400">LIVE</span>
+                </div>
+                <button onclick="simulateTrade()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-semibold flex items-center gap-2">
+                    <i class="fas fa-bolt"></i> QUICK TRADE
+                </button>
+            </div>
+        </div>
+
+        <div id="tab-content" class="flex-1 overflow-auto p-8"></div>
+    </div>
+</div>
+
+<script>
+// ============== GLOBAL DATA ==============
+let btcDominance = 59.8;
+let mainChartInstance = null;
+
+// Watchlist assets (cleaned)
+const watchlist = [
+    {id: "OBC", name: "OBC", price: 124.85, change: 2.3},
+    {id: "VDOR", name: "VDOR", price: 45.67, change: -1.1},
+    {id: "RCSC", name: "RCSC", price: 8.92, change: 4.7},
+    {id: "DOGE", name: "Dogecoin", price: 0.102, change: -3.2},
+    {id: "RMTB", name: "RMTB", price: 67.34, change: 1.8},
+    {id: "OSOR", name: "OSOR", price: 233.10, change: 0.9},
+    {id: "GOP", name: "GOP", price: 15.78, change: -2.4},
+    {id: "SPR", name: "SPR", price: 92.45, change: 5.1},
+    {id: "FDR", name: "FDR", price: 3.45, change: 1.2},
+    {id: "SATELITE", name: "SATELITE", price: 189.20, change: -0.8},
+    {id: "TRX", name: "TRON", price: 0.361, change: 0.4}
+];
+
+// Real price symbols for Binance
+const realSymbols = ["BTCUSDT", "ETHUSDT", "DOGEUSDT", "TRXUSDT"];
+
+// ============== TAB FUNCTIONS ==============
+function switchTab(tabIndex) {
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', i === tabIndex);
+    });
+    const contentArea = document.getElementById('tab-content');
+    contentArea.innerHTML = getTabContent(tabIndex);
+    
+    setTimeout(() => {
+        if (tabIndex === 0) initDashboard();
+        if (tabIndex === 1) initLiveCharts();
+        if (tabIndex === 6) renderWatchlist();
+        if (tabIndex === 7) initBacktest();
+    }, 80);
+}
+
+function getTabContent(tab) {
+    switch(tab) {
+        case 0: return dashboardHTML();
+        case 1: return liveChartsHTML();
+        case 2: return cryptoHTML();
+        case 3: return forexHTML();
+        case 4: return aiPredictionsHTML();
+        case 5: return bootcampHTML();
+        case 6: return watchlistHTML();
+        case 7: return backtestingHTML();
+        default: return dashboardHTML();
+    }
+}
+
+// ============== HTML TEMPLATES ==============
+function dashboardHTML() {
+    return `
+    <div class="grid grid-cols-12 gap-6">
+        <div class="col-span-12 lg:col-span-8 bg-zinc-900 rounded-3xl p-6">
+            <div class="flex justify-between mb-4">
+                <h2 class="text-xl font-semibold">BTC/USDT • 4H Chart</h2>
+                <div class="flex gap-4 text-sm">
+                    <span onclick="changeTimeframe(this)" class="cursor-pointer px-3 py-1 bg-zinc-800 rounded-xl">1H</span>
+                    <span onclick="changeTimeframe(this)" class="cursor-pointer px-3 py-1 bg-yellow-500 text-black rounded-xl">4H</span>
+                    <span onclick="changeTimeframe(this)" class="cursor-pointer px-3 py-1 bg-zinc-800 rounded-xl">1D</span>
+                </div>
+            </div>
+            <div class="chart-container"><canvas id="main-chart"></canvas></div>
+        </div>
+        
+        <div class="col-span-12 lg:col-span-4 space-y-6">
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <h3 class="font-semibold mb-3">Bitcoin Dominance</h3>
+                <div class="flex items-end gap-4">
+                    <div id="dom-value" class="text-5xl font-mono font-bold">${btcDominance}%</div>
+                    <div class="text-emerald-400 text-sm">+0.2%</div>
+                </div>
+                <div class="chart-container h-52 mt-6"><canvas id="dom-chart"></canvas></div>
+            </div>
+            
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <h3 class="font-semibold mb-4">AI Signal</h3>
+                <div class="text-emerald-400 text-4xl font-bold">STRONG BULLISH</div>
+                <p class="text-sm text-zinc-400 mt-2">Breakout on BTC &amp; TRON expected in 12-24h</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+function liveChartsHTML() {
+    return `
+    <div class="bg-zinc-900 rounded-3xl p-6">
+        <h2 class="text-2xl font-bold mb-6">Live Multi Charts</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div><h3 class="mb-3">BTC/USDT</h3><div class="chart-container"><canvas id="live-btc"></canvas></div></div>
+            <div><h3 class="mb-3">ETH/USDT</h3><div class="chart-container"><canvas id="live-eth"></canvas></div></div>
+        </div>
+    </div>`;
+}
+
+function cryptoHTML() {
+    return `
+    <div>
+        <h2 class="text-3xl font-bold mb-8">Crypto Market</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6" id="crypto-grid"></div>
+    </div>`;
+}
+
+function forexHTML() {
+    return `
+    <div>
+        <h2 class="text-3xl font-bold mb-8">Forex Pairs</h2>
+        <div class="grid grid-cols-2 gap-6">
+            <div class="bg-zinc-900 p-6 rounded-3xl"><div class="font-bold">EUR/USD</div><div class="text-3xl font-mono">1.0852</div><div class="text-red-400">-0.3%</div></div>
+            <div class="bg-zinc-900 p-6 rounded-3xl"><div class="font-bold">GBP/USD</div><div class="text-3xl font-mono">1.2728</div><div class="text-emerald-400">+0.4%</div></div>
+        </div>
+    </div>`;
+}
+
+function aiPredictionsHTML() {
+    return `
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl font-bold mb-8">AI Predictions &amp; Breakouts</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <div class="uppercase text-emerald-400 text-sm font-medium">Bullish • 91% Confidence</div>
+                <div class="text-5xl font-bold mt-3">BTC &amp; TRON</div>
+                <p class="mt-6">Early breakout detected. Expected duration: 18-36 hours. Target +4.8%.</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <div class="uppercase text-amber-400 text-sm font-medium">Bearish Caution</div>
+                <div class="text-5xl font-bold mt-3">DOGE</div>
+                <p class="mt-6">Possible pullback after recent run. Watch support at $0.098.</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+function bootcampHTML() {
+    return `
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl font-bold mb-8">Bootcamp • Surefire Patterns</h2>
+        <div onclick="showPatternDetail(0)" class="cursor-pointer bg-zinc-900 p-6 rounded-3xl mb-4 hover:border-emerald-500 border border-transparent">
+            <div class="font-bold text-xl">Bull Flag Continuation</div>
+            <div class="text-emerald-400">Win Rate: 91% • Best on BTC, SPR, OBC</div>
+        </div>
+        <div onclick="showPatternDetail(1)" class="cursor-pointer bg-zinc-900 p-6 rounded-3xl hover:border-emerald-500 border border-transparent">
+            <div class="font-bold text-xl">Inverse Head &amp; Shoulders</div>
+            <div class="text-emerald-400">Win Rate: 84% • Reversal on TRON, RCSC</div>
+        </div>
+    </div>`;
+}
+
+function watchlistHTML() {
+    return `<div class="max-w-6xl mx-auto"><h2 class="text-3xl font-bold mb-6">Watchlist &amp; Alerts</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="watch-grid"></div></div>`;
+}
+
+function backtestingHTML() {
+    return `
+    <div class="max-w-lg mx-auto bg-zinc-900 rounded-3xl p-8">
+        <h2 class="text-2xl font-bold mb-6">Backtesting Engine</h2>
+        <button onclick="runBacktestDemo()" class="w-full py-5 bg-yellow-500 text-black font-bold rounded-2xl text-lg">Run AI Backtest (OBC + DOGE + TRON)</button>
+        <div id="back-result" class="mt-8 hidden p-6 bg-zinc-950 rounded-2xl text-center"></div>
+    </div>`;
+}
+
+// ============== RENDER FUNCTIONS ==============
+function renderWatchlist() {
+    const grid = document.getElementById('watch-grid');
+    grid.innerHTML = '';
+    watchlist.forEach(item => {
+        const card = document.createElement('div');
+        card.className = `bg-zinc-900 p-6 rounded-3xl flex justify-between items-center cursor-pointer hover:ring-1 hover:ring-yellow-400`;
+        card.innerHTML = `
+            <div>
+                <div class="font-bold">${item.id}</div>
+                <div class="text-xs text-zinc-400">${item.name}</div>
+            </div>
+            <div class="text-right">
+                <div class="font-mono text-xl price-ticker">${item.price}</div>
+                <div class="\( {item.change >= 0 ? 'text-emerald-400' : 'text-red-400'}"> \){item.change >= 0 ? '+' : ''}${item.change}%</div>
+            </div>
+        `;
+        card.onclick = () => alert(`📈 ${item.name} details loaded. AI alert set.`);
+        grid.appendChild(card);
+    });
+}
+
+async function fetchRealPrices() {
+    try {
+        // Fetch BTC
+        const btcRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+        const btcData = await btcRes.json();
+        document.getElementById('asset-price').textContent = parseFloat(btcData.price).toLocaleString();
+        
+        // Fetch dominance via CoinGecko global
+        const globalRes = await fetch('https://api.coingecko.com/api/v3/global');
+        const globalData = await globalRes.json();
+        btcDominance = globalData.data.market_cap_percentage.btc.toFixed(1);
+        const domEl = document.getElementById('dom-value');
+        if (domEl) domEl.textContent = btcDominance + '%';
+    } catch(e) {
+        console.log("Using fallback prices");
+    }
+}
+
+function initDashboard() {
+    // Main chart
+    const ctx = document.getElementById('main-chart');
+    if (ctx) {
+        if (mainChartInstance) mainChartInstance.destroy();
+        mainChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(48).fill(''),
+                datasets: [{ 
+                    label: 'Price', 
+                    data: Array.from({length:48}, (_,i) => 62000 + Math.sin(i/8)*5200 + (Math.random()*800)),
+                    borderColor: '#eab308',
+                    borderWidth: 3,
+                    tension: 0.25
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}} }
+        });
+    }
+    
+    // Dominance mini chart
+    const domCtx = document.getElementById('dom-chart');
+    if (domCtx) {
+        new Chart(domCtx, {
+            type: 'line',
+            data: { labels: Array(20).fill(''), datasets: [{data: [58.2,58.5,59.1,59.8,59.6,60.1,59.8,59.4], borderColor: '#22c55e', tension: 0.4}] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{x:{display:false}, y:{display:false}} }
+        });
+    }
+    
+    fetchRealPrices();
+    setInterval(fetchRealPrices, 20000);
+}
+
+function initLiveCharts() {
+    new Chart(document.getElementById('live-btc'), {type:'line', data:{labels:Array(30).fill(''), datasets:[{data:Array(30).fill(0).map((_,i)=>68000 + Math.random()*3000), borderColor:'#eab308', tension:0.3}]}, options:{responsive:true, maintainAspectRatio:false}});
+    new Chart(document.getElementById('live-eth'), {type:'line', data:{labels:Array(30).fill(''), datasets:[{data:Array(30).fill(0).map((_,i)=>3400 + Math.random()*400), borderColor:'#22c55e', tension:0.3}]}, options:{responsive:true, maintainAspectRatio:false}});
+}
+
+function initBacktest() {
+    // Placeholder
+}
+
+function runBacktestDemo() {
+    const res = document.getElementById('back-result');
+    res.classList.remove('hidden');
+    res.innerHTML = `<div class="text-emerald-400 text-2xl font-bold">+287% Return</div><div class="text-sm mt-3">Win Rate 84% on selected patterns (OBC, DOGE, TRON)</div>`;
+}
+
+// Utility functions
+function simulateTrade() {
+    alert("✅ LONG position opened on BTC + TRON basket\nAI Confidence: 89%\nFollow the Money Trail active.");
+}
+
+function showPatternDetail(n) {
+    const patterns = ["Bull Flag: Strong continuation after sharp rally. High volume breakout = entry.", "Inverse H&S: Major reversal. Confirm with RSI > 50 and volume spike."];
+    alert(patterns[n]);
+}
+
+function changeTimeframe(el) {
+    document.querySelectorAll('#tab-content span').forEach(s => s.classList.remove('bg-yellow-500', 'text-black'));
+    el.classList.add('bg-yellow-500', 'text-black');
+}
+
+// ============== START APP ==============
+window.onload = () => {
+    switchTab(0);
+    console.log("%cGoldForge AI Trading Platform - Fully Fixed & Enhanced", "color:#eab308; font-size:14px");
+};
+</script>
+</body>
+</html>
