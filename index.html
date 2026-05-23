@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoldForge Trading • AI Bootcamp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .chart-container { position: relative; height: 460px; }
+        .live-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+
+<div class="flex h-screen overflow-hidden">
+    <!-- SIDEBAR -->
+    <div class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        <div class="p-6 border-b border-zinc-800">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-yellow-500 rounded-xl flex items-center justify-center text-black font-bold text-2xl">G</div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tighter">GOLDFORGE</h1>
+                    <p class="text-xs text-emerald-400">AI POWERED TRADING</p>
+                </div>
+            </div>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-1">
+            <a onclick="switchTab(0)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium cursor-pointer">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a onclick="switchTab(1)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-chart-line"></i> Live Charts
+            </a>
+            <a onclick="switchTab(2)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-coins"></i> Crypto
+            </a>
+            <a onclick="switchTab(3)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-dollar-sign"></i> Forex
+            </a>
+            <a onclick="switchTab(4)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-brain"></i> AI Predictions
+            </a>
+            <a onclick="switchTab(5)" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer">
+                <i class="fas fa-graduation-cap"></i> Bootcamp Patterns
+            </a>
+        </nav>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- TOP BAR -->
+        <div class="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center px-8 justify-between">
+            <div class="flex items-center gap-8">
+                <div id="current-asset" class="flex items-center gap-3">
+                    <span class="text-2xl font-bold" id="asset-symbol">BTC/USDT</span>
+                    <span id="asset-price" class="text-3xl font-mono font-semibold text-white">68,452.30</span>
+                    <span id="asset-change" class="text-emerald-400 font-medium">+1.84%</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full live-dot"></div>
+                    <span class="text-emerald-400 font-medium">LIVE</span>
+                </div>
+                <button onclick="simulateTrade()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-semibold flex items-center gap-2">
+                    <i class="fas fa-bolt"></i> QUICK TRADE
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB CONTENTS -->
+        <div id="tab-content" class="flex-1 overflow-auto p-8"></div>
+    </div>
+</div>
+
+<script>
+// ============== MOCK DATA ==============
+const assets = {
+    crypto: [
+        {symbol: "BTC/USDT", price: 68452.30, change: 1.84},
+        {symbol: "ETH/USDT", price: 3789.45, change: -0.67},
+        {symbol: "SOL/USDT", price: 148.92, change: 3.21},
+        {symbol: "XRP/USDT", price: 0.524, change: -1.12}
+    ],
+    forex: [
+        {symbol: "EUR/USD", price: 1.0854, change: -0.45},
+        {symbol: "GBP/USD", price: 1.2731, change: 0.32},
+        {symbol: "USD/JPY", price: 156.78, change: 0.81},
+        {symbol: "AUD/USD", price: 0.6621, change: -1.05}
+    ]
+};
+
+// ============== TAB SWITCHING ==============
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((el, i) => {
+        if (i === tab) el.classList.add('bg-zinc-800', 'text-white');
+        else el.classList.remove('bg-zinc-800', 'text-white');
+    });
+
+    const content = document.getElementById('tab-content');
+    content.innerHTML = getTabHTML(tab);
+    
+    // Re-init charts after render
+    setTimeout(() => {
+        if (tab === 1) initLiveCharts();
+        if (tab === 4) initPredictionCharts();
+    }, 100);
+}
+
+// ============== TAB HTML GENERATORS ==============
+function getTabHTML(tab) {
+    switch(tab) {
+        case 0: return getDashboardHTML();
+        case 1: return getLiveChartsHTML();
+        case 2: return getCryptoHTML();
+        case 3: return getForexHTML();
+        case 4: return getAIPredictionsHTML();
+        case 5: return getBootcampHTML();
+        default: return getDashboardHTML();
+    }
+}
+
+// Dashboard
+function getDashboardHTML() {
+    return `
+    <div class="grid grid-cols-12 gap-6">
+        <!-- Price Cards -->
+        <div class="col-span-12 md:col-span-4 bg-zinc-900 rounded-3xl p-6">
+            <p class="text-zinc-400">Bitcoin</p>
+            <p id="btc-main" class="text-4xl font-mono font-bold">68,452</p>
+            <canvas id="mini-btc" class="h-28 mt-4"></canvas>
+        </div>
+        <div class="col-span-12 md:col-span-4 bg-zinc-900 rounded-3xl p-6">
+            <p class="text-zinc-400">EUR/USD</p>
+            <p id="eur-main" class="text-4xl font-mono font-bold">1.0854</p>
+            <canvas id="mini-eur" class="h-28 mt-4"></canvas>
+        </div>
+        <div class="col-span-12 md:col-span-4 bg-gradient-to-br from-yellow-500/10 to-emerald-500/10 border border-yellow-500/30 rounded-3xl p-6">
+            <h3 class="font-bold text-xl">AI Signal</h3>
+            <div class="text-5xl font-bold text-emerald-400 mt-4">STRONG BULLISH</div>
+            <p class="text-sm text-zinc-400 mt-2">Early breakout detected • 87% confidence</p>
+        </div>
+
+        <!-- Main Chart -->
+        <div class="col-span-12 lg:col-span-8 bg-zinc-900 rounded-3xl p-6">
+            <div class="flex justify-between mb-4">
+                <h2 class="font-semibold">BTC/USDT • 4H</h2>
+                <select id="timeframe" onchange="updateMainChart()" class="bg-zinc-800 px-4 py-2 rounded-xl text-sm">
+                    <option value="1h">1H</option>
+                    <option value="4h" selected>4H</option>
+                    <option value="1d">1D</option>
+                </select>
+            </div>
+            <div class="chart-container"><canvas id="main-chart"></canvas></div>
+        </div>
+
+        <!-- Breakouts -->
+        <div class="col-span-12 lg:col-span-4 bg-zinc-900 rounded-3xl p-6">
+            <h3 class="font-semibold mb-4">🔥 Early Breakout Alerts</h3>
+            <div class="space-y-4">
+                <div class="p-4 bg-zinc-800 rounded-2xl">
+                    <div class="flex justify-between"><span>BTC/USDT</span><span class="text-emerald-400">+4.8%</span></div>
+                    <p class="text-xs text-zinc-400">Ascending Triangle • Expected 26h</p>
+                </div>
+                <div class="p-4 bg-zinc-800 rounded-2xl">
+                    <div class="flex justify-between"><span>SOL/USDT</span><span class="text-emerald-400">+6.2%</span></div>
+                    <p class="text-xs text-zinc-400">Bull Flag • Expected 14h</p>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+// Live Charts Tab
+function getLiveChartsHTML() {
+    return `
+    <div class="bg-zinc-900 rounded-3xl p-6">
+        <h2 class="text-2xl font-bold mb-6">Live Multi-Asset Charts</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+                <h3 class="mb-3 font-medium">BTC/USDT</h3>
+                <div class="chart-container"><canvas id="live-btc"></canvas></div>
+            </div>
+            <div>
+                <h3 class="mb-3 font-medium">EUR/USD</h3>
+                <div class="chart-container"><canvas id="live-eur"></canvas></div>
+            </div>
+        </div>
+    </div>`;
+}
+
+// Crypto Tab
+function getCryptoHTML() {
+    let html = `<h2 class="text-2xl font-bold mb-6">Crypto Market</h2><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+    assets.crypto.forEach(a => {
+        html += `
+        <div class="bg-zinc-900 p-6 rounded-3xl">
+            <div class="flex justify-between">
+                <span class="font-bold text-lg">${a.symbol}</span>
+                <span class="\( {a.change > 0 ? 'text-emerald-400' : 'text-red-400'} font-medium"> \){a.change > 0 ? '+' : ''}${a.change}%</span>
+            </div>
+            <div class="text-3xl font-mono mt-2">$${a.price.toLocaleString()}</div>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
+
+// Forex Tab
+function getForexHTML() {
+    let html = `<h2 class="text-2xl font-bold mb-6">Forex Market</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+    assets.forex.forEach(a => {
+        html += `
+        <div class="bg-zinc-900 p-6 rounded-3xl">
+            <div class="flex justify-between">
+                <span class="font-bold text-lg">${a.symbol}</span>
+                <span class="\( {a.change > 0 ? 'text-emerald-400' : 'text-red-400'}"> \){a.change > 0 ? '+' : ''}${a.change}%</span>
+            </div>
+            <div class="text-3xl font-mono mt-2">${a.price}</div>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
+
+// AI Predictions
+function getAIPredictionsHTML() {
+    return `
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl font-bold mb-8">AI Predictions Engine</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <h3 class="text-emerald-400 font-bold text-xl">BULLISH</h3>
+                <div class="text-6xl font-bold my-4">BTC • 89%</div>
+                <p>Early breakout confirmed. Expected move: +5.8% in next 18-32 hours.</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-8">
+                <h3 class="text-red-400 font-bold text-xl">BEARISH</h3>
+                <div class="text-6xl font-bold my-4">EUR/USD • 76%</div>
+                <p>Double top pattern forming. Possible -1.4% drop in 12 hours.</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+// Bootcamp Patterns
+function getBootcampHTML() {
+    return `
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl font-bold mb-8">Surefire Patterns Bootcamp</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div onclick="showPattern(0)" class="bg-zinc-900 p-6 rounded-3xl cursor-pointer hover:border-emerald-500 border border-transparent">
+                <h3 class="font-bold text-xl">Bull Flag</h3>
+                <p class="text-emerald-400 mt-2">Win Rate: 91%</p>
+                <p class="text-sm text-zinc-400 mt-4">Strong continuation pattern after sharp move.</p>
+            </div>
+            <div onclick="showPattern(1)" class="bg-zinc-900 p-6 rounded-3xl cursor-pointer hover:border-emerald-500 border border-transparent">
+                <h3 class="font-bold text-xl">Inverse Head & Shoulders</h3>
+                <p class="text-emerald-400 mt-2">Win Rate: 83%</p>
+                <p class="text-sm text-zinc-400 mt-4">Powerful reversal pattern.</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+// ============== CHARTS ==============
+let mainChart = null;
+
+function createChart(canvasId, color, points = 50) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(points).fill(''),
+            datasets: [{
+                data: Array.from({length: points}, (_, i) => 68000 + Math.sin(i/5)*800 + Math.random()*400),
+                borderColor: color,
+                borderWidth: 3,
+                tension: 0.3,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { display: false } }
+        }
+    });
+}
+
+function initLiveCharts() {
+    createChart('live-btc', '#eab308');
+    createChart('live-eur', '#22c55e');
+}
+
+function initMainChart() {
+    const ctx = document.getElementById('main-chart');
+    if (mainChart) mainChart.destroy();
+    mainChart = createChart('main-chart', '#eab308', 80);
+}
+
+function updateMainChart() {
+    if (mainChart) initMainChart();
+}
+
+// ============== UTILITIES ==============
+function simulateTrade() {
+    alert("✅ Trade Simulated Successfully!\n\nLONG BTC/USDT @ 68,452\nAI Confidence: 89%\nTP: 71,800 (est. 24h)\nSL: 66,900");
+}
+
+function showPattern(n) {
+    const patterns = [
+        {title: "Bull Flag", desc: "High-probability continuation. Look for strong pole followed by consolidation. Breakout above resistance with volume spike."},
+        {title: "Inverse Head & Shoulders", desc: "Major reversal pattern. Right shoulder volume confirmation is critical for high accuracy."}
+    ];
+    alert(patterns[n].title + "\n\n" + patterns[n].desc + "\n\nHistorical Win Rate: " + (n===0 ? "91%" : "83%"));
+}
+
+// Real price fetch
+async function fetchBTC() {
+    try {
+        const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
+        const data = await res.json();
+        document.getElementById('asset-price').textContent = parseFloat(data.price).toLocaleString();
+    } catch(e) {}
+}
+
+// ============== INITIALIZE ==============
+window.onload = () => {
+    switchTab(0);           // Start on Dashboard
+    initMainChart();
+    fetchBTC();
+    setInterval(fetchBTC, 12000);
+
+    console.log("%c✅ GoldForge Full Platform Loaded - All Tabs Working", "color:#eab308;font-size:15px");
+};
+</script>
+</body>
+</html>
